@@ -20,8 +20,27 @@ export default function Timer() {
     }
   };
 
+  const playBeep = (frequency = 800, duration = 200) => {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    oscillator.frequency.value = frequency;
+    oscillator.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + duration / 1000);
+  };
+
   const start = () => {
     if (!isRunning) {
+      playBeep(1000, 150);
       setIsRunning(true);
       intervalRef.current = setInterval(() => {
         setTime((prev) => prev + 10);
@@ -30,18 +49,26 @@ export default function Timer() {
   };
 
   const stop = () => {
+    playBeep(600, 300);
     setIsRunning(false);
     clearInterval(intervalRef.current);
   };
 
   const reset = () => {
+    playBeep(400, 150);
     setIsRunning(false);
     clearInterval(intervalRef.current);
     setTime(0);
   };
 
   const addLap = async () => {
+    // Only allow lap when timer is running
+    if (!isRunning) {
+      return;
+    }
+    
     const lapTime = formatTime(time);
+    playBeep(800, 100);
     try {
       await API.post('/laps', { lap_time: lapTime, type: 'timer' });
       fetchLaps();
@@ -60,10 +87,11 @@ export default function Timer() {
   };
 
   const formatTime = (ms) => {
-    const minutes = Math.floor(ms / 60000);
+    const hours = Math.floor(ms / 3600000);
+    const minutes = Math.floor((ms % 3600000) / 60000);
     const seconds = Math.floor((ms % 60000) / 1000);
     const milliseconds = Math.floor((ms % 1000) / 10);
-    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${milliseconds.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -71,16 +99,31 @@ export default function Timer() {
       <h3 className="text-xl font-bold mb-4">Timer with Laps</h3>
       <div className="text-4xl font-mono mb-4">{formatTime(time)}</div>
       <div className="flex gap-2 mb-4">
-        <button onClick={start} className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+        <button 
+          onClick={start} 
+          disabled={isRunning}
+          className={`px-4 py-2 rounded ${isRunning ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600'} text-white`}
+        >
           Start
         </button>
-        <button onClick={stop} className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
+        <button 
+          onClick={stop} 
+          disabled={!isRunning}
+          className={`px-4 py-2 rounded ${!isRunning ? 'bg-gray-400 cursor-not-allowed' : 'bg-yellow-500 hover:bg-yellow-600'} text-white`}
+        >
           Stop
         </button>
-        <button onClick={reset} className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
+        <button 
+          onClick={reset} 
+          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+        >
           Reset
         </button>
-        <button onClick={addLap} className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+        <button 
+          onClick={addLap} 
+          disabled={!isRunning}
+          className={`px-4 py-2 rounded ${!isRunning ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
+        >
           Lap
         </button>
       </div>
